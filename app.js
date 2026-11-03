@@ -1,59 +1,94 @@
-const $=s=>document.querySelector(s),el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
-const TABS=[['counter','⚔️','Counter'],['maps','🗺️','Maps'],['heroes','🦸','Heroes'],['sens','🎯','Sens'],['xh','➕','Crosshair'],['pc','🖥️','PC']];
-let tab='counter';TABS.forEach(([id,i,l])=>{const b=el('button',id==tab?'on':'',`<span>${i}</span>${l}`);b.onclick=()=>show(id);b.dataset.t=id;$('#nav').append(b)});
-function show(id){tab=id;document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id==id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==id));scrollTo(0,0);render()}
-const q=()=>$('#q').value.trim().toLowerCase();$('#q').oninput=()=>{if(tab=='counter'||tab=='sens'||tab=='pc'||tab=='xh'){const m=MAPS.some(m=>m[0].toLowerCase().includes(q()));show(m&&!HEROES.some(h=>h.name.toLowerCase().includes(q()))?'maps':'heroes')}else render()};
+const $=s=>document.querySelector(s);
 const ALIAS={'Ball':'Wrecking Ball','Rein':'Reinhardt','JQ':'Junker Queen','Brig':'Brigitte','Widow':'Widowmaker'};
-const slug=n=>(ALIAS[n]||n).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.:]/g,'').replace(/\s+/g,'-');
-const RC={T:'#4ea3ff',D:'#ff5a5a',S:'#4fd18b'};
-function ic(n){const h=HEROES.find(x=>x.name==(ALIAS[n]||n));const r=h?h.role:'D';const ini=(ALIAS[n]||n).replace(/[^A-Za-z ]/g,'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-return `<span class="hi"><img src="icons/${slug(n)}.webp" alt="" loading="lazy" width="28" height="28" onerror="this.outerHTML='<span class=&quot;fb&quot; style=&quot;background:${RC[r]}&quot;>${ini}</span>'"></span>`}
-const nm=n=>n=='—'?n:`<span class="hn">${ic(n)}${n}</span>`;
-const names=a=>a.map(nm).join(' ');
-const HRX=new RegExp('\\b('+[...HEROES.map(h=>h.name),...Object.keys(ALIAS)].sort((a,b)=>b.length-a.length).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?![\\w])','g');
-const deco=t=>t.replace(HRX,m=>nm(m));
-const H=n=>HEROES.find(h=>h.name==n);
-// Counter
+const full=n=>ALIAS[n]||n,H=n=>HEROES.find(h=>h.name==full(n));
+const slug=n=>full(n).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.:]/g,'').replace(/\s+/g,'-');
+const RC={T:'Tank',D:'Damage',S:'Support'};
+const av=n=>{const h=H(n),r=h?h.role:'D',ini=full(n).replace(/[^A-Za-z ]/g,'').split(' ').map(w=>w[0]).join('').slice(0,2);
+ return `<span class="av r${r}" style="background:var(--${r})"><img src="icons/${slug(n)}.webp?v=3" alt="" loading="lazy" onerror="this.replaceWith('${ini}')" onload="this.parentNode.style.background=''"></span>`};
+const pchip=n=>H(n)?`<button class="pc" onclick="openHero('${full(n)}')">${av(n)}${full(n)}</button>`:'';
+const HRX=new RegExp('\\b('+[...HEROES.map(h=>h.name),...Object.keys(ALIAS)].sort((a,b)=>b.length-a.length).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?!\\w)','g');
+const heroesIn=t=>[...new Set((t.match(HRX)||[]).map(full))];
+const ICONS={counter:'<path d="M5 19 19 5M14 5h5v5M5 5l5 5M14 14l5 5M19 14v5h-5"/>',maps:'<path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>',heroes:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',sens:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',xh:'<path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>',pc:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'};
+const TABS=[['counter','Counter'],['maps','Maps'],['heroes','Heroes'],['sens','Sens'],['xh','Crosshair'],['pc','PC']];
+let tab='counter';
+$('#nav').innerHTML=TABS.map(([id,l])=>`<button data-t="${id}"><svg viewBox="0 0 24 24">${ICONS[id]}</svg>${l}</button>`).join('');
+$('#nav').onclick=e=>{const b=e.target.closest('button');if(b)go(b.dataset.t)};
+function go(t){tab=t;$('#q').value='';$('.search').classList.remove('has');render();scrollTo(0,0)}
+$('#q').oninput=()=>{$('.search').classList.toggle('has',!!$('#q').value);render()};$('#qx').onclick=()=>go(tab);
+function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==tab));const q=$('#q').value.trim().toLowerCase();
+ const m=$('#main');m.style.animation='none';m.offsetHeight;m.style.animation='';m.innerHTML=q?vSearch(q):V[tab]();after[tab]&&!q&&after[tab]()}
+const note='<div class="note">Unofficial fan tool · data reflects public sources as of Nov 2026 · counters are community heuristics</div>';
+// sheet
+function sheet(html){$('#sheetBody').innerHTML=html;$('#sheet').scrollTop=0;document.body.classList.add('sh')}
+const closeSheet=()=>document.body.classList.remove('sh');$('#scrim').onclick=closeSheet;
+let y0;$('#sheet').addEventListener('touchstart',e=>{y0=$('#sheet').scrollTop<=0?e.touches[0].clientY:null},{passive:true});
+$('#sheet').addEventListener('touchend',e=>{if(y0!=null&&e.changedTouches[0].clientY-y0>90)closeSheet()});
+const heroGrid=(list,click,sel)=>`<div class="grid">${list.map(h=>`<button class="ht${sel&&sel.has(h.name)?' sel':''}" onclick="${click}('${h.name}')">${av(h.name)}<span class="n">${h.name}</span></button>`).join('')}</div>`;
+const roleGroups=(click,sel,filter=h=>1)=>['T','D','S'].map(r=>{const l=HEROES.filter(h=>h.role==r&&filter(h));return l.length?`<div class="rolehdr r${r}"><span class="dot"></span>${RC[r]} · ${l.length}</div>`+heroGrid(l,click,sel):''}).join('');
+// COUNTER
 let enemies=new Set(),myRole='D';
-function renderEnemy(){const w=$('#enemy');w.innerHTML='';['T','D','S'].forEach(r=>{const d=el('div','chips');d.style.margin='8px 0';HEROES.filter(h=>h.role==r).forEach(h=>{const c=el('button','chip r'+r+(enemies.has(h.name)?' sel':''),ic(h.name)+h.name);c.onclick=()=>{enemies.has(h.name)?enemies.delete(h.name):enemies.size<5&&enemies.add(h.name);renderEnemy();renderSugg()};d.append(c)});w.append(d)})}
-const mr=$('#myrole');[['T','Tank'],['D','Damage'],['S','Support']].forEach(([r,l])=>{const c=el('button','chip'+(r==myRole?' sel':''),l);c.onclick=()=>{myRole=r;[...mr.children].forEach(x=>x.classList.remove('sel'));c.classList.add('sel');renderSugg()};mr.append(c)});
-$('#clr').onclick=()=>{enemies.clear();renderEnemy();renderSugg()};
-function renderSugg(){const s=$('#sugg');if(!enemies.size){s.innerHTML='<div class="card mu">Select up to 5 enemies.</div>';return}
-const sc={},why={};HEROES.filter(h=>h.role==myRole).forEach(h=>{sc[h.name]=0;why[h.name]=[]});
-enemies.forEach(e=>{const eh=H(e);eh.cby.forEach((c,i)=>{const n=c=='Ball'?'Wrecking Ball':c;if(n in sc){sc[n]+=4-i*0.5;why[n].push(`vs ${nm(e)}: ${WHY[n]||'strong matchup'}`)}});
-HEROES.forEach(h=>{if(h.name in sc&&h.ctr.includes(e)){sc[h.name]+=1;}});
-HEROES.forEach(h=>{if(h.name in sc&&eh.ctr.includes(h.name)){sc[h.name]-=2;why[h.name].push(`weak vs ${nm(e)}`)}})});
-const list=Object.entries(sc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
-s.innerHTML='<h2>Suggestions</h2>'+(list.length?list.map(([n,v],i)=>`<div class="card r${myRole}"><b>${i+1}. ${nm(n)}</b>${H(n).newish?'<span class="tag">limited data</span>':''} <span class="mu">score ${v.toFixed(1)}</span><div class="mu">${why[n].filter(w=>!w.startsWith('weak')).slice(0,2).join(' · ')||'Good overall into this comp'}${why[n].some(w=>w.startsWith('weak'))?' · ⚠ '+why[n].filter(w=>w.startsWith('weak')).join(', '):''}</div></div>`).join(''):'<div class="card mu">No clear counter in this role — play your comfort pick.</div>')}
-// Maps
-let mf='All';const modes=['All','Control','Escort','Hybrid','Push','Flashpoint'];modes.forEach(m=>{const c=el('button','chip'+(m==mf?' sel':''),m);c.onclick=()=>{mf=m;[...$('#mf').children].forEach(x=>x.classList.toggle('sel',x==c));render()};$('#mf').append(c)});
-function renderMaps(){$('#maplist').innerHTML=MAPS.filter(m=>(mf=='All'||m[1]==mf)&&m[0].toLowerCase().includes(q())).map(m=>`<div class="card"><b>${m[0]}</b> <span class="tag">${m[1]}</span><div><span class="mu">Comps:</span> ${deco(m[2])}</div><div class="mu">${deco(m[3])}</div></div>`).join('')}
-// Heroes
-let hf='All';['All','Tank','Damage','Support'].forEach(m=>{const c=el('button','chip'+(m==hf?' sel':''),m);c.onclick=()=>{hf=m;[...$('#hf').children].forEach(x=>x.classList.toggle('sel',x==c));render()};$('#hf').append(c)});
-function renderHeroes(){$('#herolist').innerHTML=HEROES.filter(h=>(hf=='All'||R[h.role]==hf)&&h.name.toLowerCase().includes(q())).map(h=>`<div class="card r${h.role}"><b>${nm(h.name)}</b> <span class="tag">${R[h.role]}${h.sub!='—'?' · '+h.sub:''}</span>${h.newish?'<span class="tag">limited data</span>':''}<ul>${h.tips.map(t=>`<li>${t}</li>`).join('')}</ul><div><span class="mu">Countered by:</span> ${names(h.cby)}</div><div><span class="mu">Good into:</span> ${names(h.ctr)}</div><div><span class="mu">Settings:</span> ${h.set} Aim assist: n/a on PC mouse.</div></div>`).join('')}
-// Sens
-const SCOPED=[['Widowmaker',30,1],['Ana',30,1],['Ashe',30,1],['Freja',null,0],['Emre',null,0]];
-const rad=d=>d*Math.PI/180,deg=r=>r*180/Math.PI;
-function renderSens(){const s=+$('#hs').value||0,d=+$('#dpi').value||0,f=+$('#fov').value||103,p=$('#mdm').value;
-$('#edpi').textContent=(s*d).toFixed(0);$('#cm').textContent=s&&d?(360/(s*0.0066*d)*2.54).toFixed(2):'—';
-const bv=2*Math.atan(Math.tan(rad(f)/2)*9/16);
-$('#scoped').innerHTML='<table><tr><th>Hero</th><th>Zoomed %</th><th>Scoped cm/360</th></tr>'+SCOPED.map(([n,zv,ok])=>{if(!zv)return `<tr><td>${nm(n)}</td><td colspan=2 class="mu">Zoom FOV not verified — start at ${p=='360'?'100':'37.89'} and test in Practice Range</td></tr>`;
-let v;const z=rad(zv);if(p=='360')v=100;else if(p=='0')v=100*Math.tan(z/2)/Math.tan(bv/2);else{const k=+p,zh=2*Math.atan(Math.tan(z/2)*16/9),bh=rad(f);v=100*Math.atan(k*Math.tan(zh/2))/Math.atan(k*Math.tan(bh/2))}
-const cm=s&&d?(360/(s*0.0066*d*v/100)*2.54).toFixed(1):'—';return `<tr><td>${nm(n)}</td><td class="big">${v.toFixed(2)}</td><td>${cm}</td></tr>`}).join('')+'</table>'}
-['hs','dpi','fov','mdm'].forEach(i=>$('#'+i).oninput=renderSens);
-// Crosshair
-function drawXH(cv,o,type){const c=cv.getContext('2d'),W=cv.width,H=cv.height,cx=W/2,cy=H/2,S=3;c.clearRect(0,0,W,H);c.globalAlpha=o.op/100;
-const rect=(x,y,w,h)=>{if(o.outline){c.fillStyle='#000';c.fillRect(x-S,y-S,w+2*S,h+2*S)}c.fillStyle=o.color;c.fillRect(x,y,w,h)};
-const t=o.thick*S,l=o.len*S,g=o.gap*S;if(type=='Crosshair'&&l>0){rect(cx-t/2,cy-g-l,t,l);rect(cx-t/2,cy+g,t,l);rect(cx-g-l,cy-t/2,l,t);rect(cx+g,cy-t/2,l,t)}
-if(o.dot){const r=o.dot*S/2;if(o.outline){c.fillStyle='#000';c.beginPath();c.arc(cx,cy,r+S,0,7);c.fill()}c.fillStyle=o.color;c.beginPath();c.arc(cx,cy,r,0,7);c.fill()}}
-function renderXH(){const g=$('#xgrid');g.innerHTML='';XH.forEach(([n,type,o])=>{const txt=`Type: ${type}\nColor: ${o.color.toUpperCase()}\nThickness: ${o.thick}\nCrosshair length: ${o.len}\nCenter gap: ${o.gap}\nOpacity: ${o.op}%\nOutline opacity: ${o.outline?100:0}%\nDot size: ${o.dot}\nDot opacity: ${o.dot?100:0}%`;
-const d=el('div','card',`<b>${n}</b> <span class="tag">popular style</span>`);const cv=el('canvas');cv.width=160;cv.height=110;d.prepend(cv);drawXH(cv,o,type);d.append(el('pre','',txt));const b=el('button','cp','Copy');b.onclick=()=>navigator.clipboard?.writeText(txt).then(()=>b.textContent='Copied');d.append(b);g.append(d)})}
+function tog(n){enemies.has(n)?enemies.delete(n):enemies.size<5&&enemies.add(n);render()}
+function suggest(){const sc={},why={},weak={};HEROES.filter(h=>h.role==myRole).forEach(h=>{sc[h.name]=0;why[h.name]=[];weak[h.name]=[]});
+ enemies.forEach(e=>{const eh=H(e);eh.cby.forEach((c,i)=>{const n=full(c);if(n in sc){sc[n]+=4-i*.5;why[n].push(e)}});
+ HEROES.forEach(h=>{if(h.name in sc&&h.ctr.includes(e))sc[h.name]+=1;if(h.name in sc&&eh.ctr.includes(h.name)){sc[h.name]-=2;weak[h.name].push(e)}})});
+ return Object.entries(sc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n])=>({n,why:why[n],weak:weak[n]}))}
+const V={};
+V.counter=()=>{const s=suggest();const slots=[...enemies].map(av).join('')+'<span class="slot"></span>'.repeat(5-enemies.size);
+ return `<h2>Counter-pick</h2><p class="sub">Tap up to 5 enemies, choose your role.</p>
+ <div class="tray"><div class="slots">${slots}</div>${enemies.size?'<button class="btn" onclick="enemies.clear();render()">Clear</button>':''}</div>
+ <div class="seg">${Object.entries(RC).map(([r,l])=>`<button class="${r==myRole?'on':''}" onclick="myRole='${r}';render()">I play ${l}</button>`).join('')}</div>
+ ${enemies.size?`<h3>Best picks</h3>${s.length?s.map((x,i)=>`<button class="card res r${myRole}" style="width:100%;text-align:left" onclick="openHero('${x.n}')"><span class="rank">${i+1}</span>${av(x.n)}<span class="t"><b>${x.n}</b><div class="why">${WHY[x.n]||'Strong into this comp'} · vs ${x.why.slice(0,3).join(', ')}</div>${x.weak.length?`<div class="why warn">⚠ watch ${x.weak.join(', ')}</div>`:''}</span></button>`).join(''):'<div class="card empty">No clear counter here — play your comfort pick.</div>'}`:''}
+ <h3>Enemy team</h3>${roleGroups('tog',enemies)}${note}`};
+// MAPS
+let mode='All';const MODES=['All','Control','Escort','Hybrid','Push','Flashpoint'];
+const style=m=>m[2].split(/[ (]/)[0].replace(/\/.*/,'');
+const mapRows=l=>`<div class="list">${l.map(m=>`<button class="row" onclick="openMap('${m[0].replace(/'/g,"\\'")}')"><span class="grow"><b>${m[0]}</b><br><span class="tag mode-${m[1]}">${m[1]}</span><span class="tag">${m[2].replace(/\s*\(.*\)/,'')}</span></span><span class="chev">›</span></button>`).join('')}</div>`;
+V.maps=()=>`<h2>Maps</h2><p class="sub">${MAPS.length} maps in rotation · tap for picks & tips</p><div class="seg" style="overflow-x:auto">${MODES.map(x=>`<button class="${x==mode?'on':''}" onclick="mode='${x}';render()">${x=='Flashpoint'?'Flash':x}</button>`).join('')}</div>`+mapRows(MAPS.filter(m=>mode=='All'||m[1]==mode))+note;
+function openMap(n){const m=MAPS.find(x=>x[0]==n),picks=heroesIn(m[2]),tips=m[3].split(/(?<=\.)\s+|;\s*/).filter(Boolean);
+ sheet(`<h2>${m[0]}</h2><div style="margin:6px 0 4px"><span class="tag mode-${m[1]}">${m[1]}</span><span class="tag or">${m[2].replace(/\s*\(.*\)/,'')}</span></div>
+ <h3>Best picks</h3>${picks.length?`<div class="chips">${picks.map(pchip).join('')}</div>`:'<p class="hint">Meta still forming — flexible comps.</p>'}
+ <h3>Tips</h3><ul class="b">${tips.map(t=>`<li>${t[0].toUpperCase()+t.slice(1).replace(/\.$/,'')}</li>`).join('')}</ul>`)}
+// HEROES
+let hrole='All';
+V.heroes=()=>`<h2>Heroes</h2><p class="sub">${HEROES.length} heroes · tap for tips, counters & settings</p><div class="seg">${['All','T','D','S'].map(r=>`<button class="${r==hrole?'on':''}" onclick="hrole='${r}';render()">${RC[r]||'All'}</button>`).join('')}</div>`+roleGroups('openHero',null,h=>hrole=='All'||h.role==hrole)+note;
+function openHero(n){const h=H(n);sheet(`<div class="shead">${av(h.name)}<div><h2>${h.name}</h2><span class="tag r${h.role}">${RC[h.role]}</span>${h.sub!='—'?`<span class="tag">${h.sub}</span>`:''}${h.newish?'<span class="tag or">limited data</span>':''}</div></div>
+ <h3>Key tips</h3><ul class="b">${h.tips.map(t=>`<li>${t[0].toUpperCase()+t.slice(1).replace(/\.$/,'')}</li>`).join('')}</ul>
+ <h3>Countered by</h3><div class="chips">${h.cby.map(pchip).join('')}</div>
+ <h3>Good into</h3><div class="chips">${h.ctr.map(pchip).join('')||'<span class="hint">Not enough data</span>'}</div>
+ <h3>Settings</h3><ul class="b"><li>${h.set=='—'?'Defaults are fine':h.set}</li><li>Aim assist: n/a on PC mouse</li></ul>`)}
+// SENS
+const SCOPED=[['Widowmaker',30],['Ana',30],['Ashe',30],['Freja',null],['Emre',null]],rad=d=>d*Math.PI/180;
+let S={hs:5,dpi:800,fov:103,mdm:'0'};
+V.sens=()=>`<h2>Scoped sensitivity</h2><p class="sub">Match zoomed aim to your hipfire.</p><div class="card calc"><div class="fields">
+ <div><label>Sens</label><input id="hs" type="number" inputmode="decimal" step="0.01" value="${S.hs}"></div><div><label>DPI</label><input id="dpi" type="number" inputmode="numeric" value="${S.dpi}"></div><div><label>FOV</label><input id="fov" type="number" inputmode="numeric" value="${S.fov}"></div></div>
+ <div style="margin-top:10px"><label>Match method</label><select id="mdm">${[['0','0% monitor distance · recommended'],['0.5','50% monitor distance'],['0.75','75% monitor distance'],['1','100% monitor distance'],['360','360° distance (1:1)']].map(([v,l])=>`<option value="${v}"${v==S.mdm?' selected':''}>${l}</option>`).join('')}</select></div></div>
+ <div id="sout"></div>
+ <details><summary>How it works<span class="c">formula</span></summary><div style="padding:0 14px 14px" class="hint"><p>cm/360 = 360 ÷ (sens × 0.0066 × DPI) × 2.54</p><p>Set the % at Options → Controls → hero → “Relative aim sensitivity while zoomed”.</p><p>0% MDM = tan(zoom vFOV/2) ÷ tan(base vFOV/2) ≈ <b>37.89</b> at FOV 103. The game default <b>30</b> is slower than 0% MDM. 360° match = 100.</p></div></details>${note}`;
+function sens(){['hs','dpi','fov','mdm'].forEach(k=>S[k]=$('#'+k).value);const s=+S.hs,d=+S.dpi,f=+S.fov||103,p=S.mdm,bv=2*Math.atan(Math.tan(rad(f)/2)*9/16);
+ const cm=x=>s&&d?(360/(s*x*.0066*d)*2.54):0;
+ $('#sout').innerHTML=`<div class="stats"><div class="stat"><div class="k">eDPI</div><div class="v">${Math.round(s*d)}</div></div><div class="stat"><div class="k">cm / 360°</div><div class="v">${cm(1)?cm(1).toFixed(1):'—'}</div></div></div><h3>Zoomed %</h3><div class="list">`+SCOPED.map(([n,zv])=>{
+ if(!zv)return `<div class="row sc">${av(n)}<span class="grow"><b>${n}</b><div class="hint">Zoom FOV unverified · start at ${p=='360'?'100':'37.89'} & test</div></span></div>`;
+ const z=rad(zv);let v=p=='360'?100:p=='0'?100*Math.tan(z/2)/Math.tan(bv/2):100*Math.atan(+p*Math.tan(2*Math.atan(Math.tan(z/2)*16/9)/2))/Math.atan(+p*Math.tan(rad(f)/2));
+ return `<div class="row sc">${av(n)}<span class="grow"><b>${n}</b><div class="hint">${cm(v/100)?cm(v/100).toFixed(1)+' cm/360 scoped':''}</div></span><span class="v">${v.toFixed(2)}</span></div>`}).join('')+'</div>'}
+const after={sens:()=>{['hs','dpi','fov','mdm'].forEach(k=>$('#'+k).oninput=sens);sens()},xh:()=>document.querySelectorAll('.xc canvas').forEach((c,i)=>drawXH(c,XH[i][2],XH[i][1],1.6))};
+// CROSSHAIR
+function drawXH(cv,o,type,k){const dpr=2,W=cv.width=cv.clientWidth*dpr||320,H_=cv.height=W*.62,c=cv.getContext('2d'),cx=W/2,cy=H_/2,S_=k*dpr;c.globalAlpha=o.op/100;
+ const rect=(x,y,w,h)=>{if(o.outline){c.fillStyle='#000';c.fillRect(x-S_,y-S_,w+2*S_,h+2*S_)}c.fillStyle=o.color;c.fillRect(x,y,w,h)};const t=o.thick*S_,l=o.len*S_,g=o.gap*S_;
+ if(type=='Crosshair'&&l>0){rect(cx-t/2,cy-g-l,t,l);rect(cx-t/2,cy+g,t,l);rect(cx-g-l,cy-t/2,l,t);rect(cx+g,cy-t/2,l,t)}
+ if(o.dot){const r=o.dot*S_/2;if(o.outline){c.fillStyle='#000';c.beginPath();c.arc(cx,cy,r+S_,0,7);c.fill()}c.fillStyle=o.color;c.beginPath();c.arc(cx,cy,r,0,7);c.fill()}}
+const xtxt=(type,o)=>`Type: ${type}\nColor: ${o.color.toUpperCase()}\nThickness: ${o.thick}\nCrosshair length: ${o.len}\nCenter gap: ${o.gap}\nOpacity: ${o.op}%\nOutline opacity: ${o.outline?100:0}%\nDot size: ${o.dot}\nDot opacity: ${o.dot?100:0}%`;
+V.xh=()=>`<h2>Crosshairs</h2><p class="sub">Tap one for exact settings. All labeled “popular style” — no pro attribution verified.</p><div class="xg">${XH.map(([n],i)=>`<button class="xc" onclick="openXH(${i})"><canvas></canvas><div>${n}</div></button>`).join('')}</div>`+note;
+function openXH(i){const[n,type,o]=XH[i];sheet(`<h2>${n}</h2><span class="tag">popular style</span><div class="xc" style="margin-top:12px"><canvas id="bigx"></canvas></div><pre id="xt">${xtxt(type,o)}</pre><button class="btn pri" style="width:100%;padding:13px" onclick="navigator.clipboard&&navigator.clipboard.writeText($('#xt').textContent);this.textContent='Copied ✓'">Copy settings</button><p class="hint">Options → Controls → General → Reticle → Advanced</p>`);requestAnimationFrame(()=>drawXH($('#bigx'),o,type,2.6))}
 // PC
-const PC=[['Video (max FPS, low latency)',['Display Mode: Fullscreen (exclusive)','Resolution: native; Render Scale 100% (or lower if CPU/GPU bound)','Field of View: 103','Frame Rate: Custom; cap ≈ refresh × ~2 or a stable value (e.g. 237 on 240Hz with G-Sync, or uncapped minus 10% headroom if no VRR)','NVIDIA Reflex: Enabled + Boost (if GPU-bound)','V-Sync, Triple Buffering: Off','Reduce Buffering: On (if no Reflex option)','Graphics Quality: Low; Texture Quality: Medium/High if VRAM allows (little FPS cost)','Texture Filtering: 8x–16x (cheap)','Local Fog, Dynamic Reflections, Shadows, Ambient Occlusion, Local Reflections, Damage FX: Low/Off','Model Detail: Low; Effects Detail: Low (clearer visuals)','High Precision Mouse Input: On','Show performance stats: FPS, latency (Options → Video → Performance stats)']],
-['Game options',['Controls → General: disable mouse acceleration (game has none by default)','Reticle: Advanced, see Crosshair tab','Waypoint/Friendly outlines: default','Sound: Dolby Atmos for Headphones / Windows Sonic on (if available)','Enable “Show Hero Portrait” / kill feed for awareness','Hit marker: on; Critical hit sound on']],
-['Windows checklist',['Windows Game Mode: On','Hardware-accelerated GPU scheduling: test on/off (usually On)','Power plan: High/Ultimate Performance','Disable “Enhance pointer precision”','Disable Xbox Game Bar captures/overlays you don\'t use','Disable fullscreen optimizations only if you see stutter','Close browsers/launchers running in background','Keep chipset & GPU drivers updated']],
-['NVIDIA / GPU',['Low Latency Mode: Off (Reflex in-game handles it)','Power management: Prefer maximum performance','G-Sync on (fullscreen) + in-game cap 3 FPS under refresh','Texture filtering quality: High performance','AMD: Anti-Lag on, Radeon Chill off']],
-['Monitor / mouse',['Refresh rate set correctly in Windows display settings','Mouse polling 1000Hz+; DPI 400–1600','Overdrive: medium (avoid inverse ghosting)']]];
-$('#pcs').innerHTML=PC.map(([t,l])=>`<div class="card"><b>${t}</b><ul>${l.map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('');
-function render(){renderMaps();renderHeroes()}
-renderEnemy();renderSugg();renderSens();renderXH();render();
+const PC=[['Video · max FPS & low latency',['Display Mode: Fullscreen (exclusive)','Resolution native · Render Scale 100%','Field of View: 103','Frame cap: ~3 below refresh with G-Sync (e.g. 237 @240Hz), else stable high cap','NVIDIA Reflex: Enabled + Boost','V-Sync & Triple Buffering: Off','Reduce Buffering: On (if no Reflex)','Graphics Quality: Low · Textures Medium/High if VRAM allows','Texture Filtering: 8x–16x','Fog, Reflections, Shadows, AO: Low/Off','Model & Effects Detail: Low (clearer)','High Precision Mouse Input: On','Show performance stats: FPS + latency']],
+['Game options',['Mouse acceleration: none (default)','Reticle: Advanced (see Crosshair tab)','Dolby Atmos / Windows Sonic for Headphones','Hit markers & crit sound on','Kill feed & hero portraits visible']],
+['Windows',['Game Mode: On','HW-accelerated GPU scheduling: test On','Power plan: High / Ultimate Performance','Enhance pointer precision: Off','Disable unused Xbox Game Bar captures','Close background browsers & launchers','Update chipset & GPU drivers']],
+['NVIDIA / AMD',['NVIDIA Low Latency Mode: Off (Reflex handles it)','Power management: Prefer max performance','G-Sync on + cap 3 below refresh','Texture filtering quality: High performance','AMD: Anti-Lag on · Radeon Chill off']],
+['Monitor & mouse',['Refresh rate set in Windows display settings','Mouse polling 1000Hz+ · DPI 400–1600','Overdrive: medium (no inverse ghosting)']]];
+const done=JSON.parse(localStorage.owpc||'{}');function ck(k,v){done[k]=v;localStorage.owpc=JSON.stringify(done);render()}
+V.pc=()=>`<h2>PC settings</h2><p class="sub">Tick items as you apply them · saved on this device.</p>`+PC.map(([t,l],gi)=>{const n=l.filter((_,i)=>done[gi+'-'+i]).length;return `<details${gi==0?' open':''}><summary>${t}<span class="c">${n}/${l.length}</span></summary>${l.map((x,i)=>`<label class="chk"><input type="checkbox"${done[gi+'-'+i]?' checked':''} onchange="ck('${gi}-${i}',this.checked)"><span>${x}</span></label>`).join('')}</details>`}).join('')+note;
+// SEARCH
+function vSearch(q){const hs=HEROES.filter(h=>h.name.toLowerCase().includes(q)),ms=MAPS.filter(m=>m[0].toLowerCase().includes(q)||m[1].toLowerCase().includes(q));
+ return `<h2>Results</h2>${hs.length?`<h3>Heroes</h3>${heroGrid(hs,'openHero')}`:''}${ms.length?`<h3>Maps</h3>${mapRows(ms)}`:''}${!hs.length&&!ms.length?'<div class="empty">No matches</div>':''}`}
+// deep links: #counter=Winston,Genji&role=D | #map=Dorado | #tab=xh
+(function(){const p=new URLSearchParams(location.hash.slice(1));if(p.get('tab'))tab=p.get('tab');if(p.get('counter'))p.get('counter').split(',').forEach(n=>H(n)&&enemies.add(H(n).name));if(p.get('role'))myRole=p.get('role');render();if(p.get('map')){tab='maps';render();openMap(p.get('map'))}if(p.get('hero'))openHero(p.get('hero'))})();
