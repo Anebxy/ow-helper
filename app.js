@@ -1,10 +1,11 @@
 const $=s=>document.querySelector(s);
+HEROES.forEach(h=>{h.cbyE=EDGES.filter(e=>e[1]==h.name);h.ctrE=EDGES.filter(e=>e[0]==h.name);h.cby=h.cbyE.map(e=>e[0]);h.ctr=h.ctrE.map(e=>e[1]);h.newish=LIMITED.includes(h.name)});
 const ALIAS={'Ball':'Wrecking Ball','Rein':'Reinhardt','JQ':'Junker Queen','Brig':'Brigitte','Widow':'Widowmaker'};
 const full=n=>ALIAS[n]||n,H=n=>HEROES.find(h=>h.name==full(n));
 const slug=n=>full(n).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[.:]/g,'').replace(/\s+/g,'-');
 const RC={T:'Tank',D:'Damage',S:'Support'};
 const av=n=>{const h=H(n),r=h?h.role:'D',ini=full(n).replace(/[^A-Za-z ]/g,'').split(' ').map(w=>w[0]).join('').slice(0,2);
- return `<span class="av r${r}" style="background:var(--${r})"><img src="icons/${slug(n)}.webp?v=3" alt="" loading="lazy" onerror="this.replaceWith('${ini}')" onload="this.parentNode.style.background=''"></span>`};
+ return `<span class="av r${r}" style="background:var(--${r})"><img src="icons/${slug(n)}.webp?v=4" alt="" loading="lazy" onerror="this.replaceWith('${ini}')" onload="this.parentNode.style.background=''"></span>`};
 const pchip=n=>H(n)?`<button class="pc" onclick="openHero('${full(n)}')">${av(n)}${full(n)}</button>`:'';
 const HRX=new RegExp('\\b('+[...HEROES.map(h=>h.name),...Object.keys(ALIAS)].sort((a,b)=>b.length-a.length).map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?!\\w)','g');
 const heroesIn=t=>[...new Set((t.match(HRX)||[]).map(full))];
@@ -28,16 +29,13 @@ const roleGroups=(click,sel,filter=h=>1)=>['T','D','S'].map(r=>{const l=HEROES.f
 // COUNTER
 let enemies=new Set(),myRole='D';
 function tog(n){enemies.has(n)?enemies.delete(n):enemies.size<5&&enemies.add(n);render()}
-function suggest(){const sc={},why={},weak={};HEROES.filter(h=>h.role==myRole).forEach(h=>{sc[h.name]=0;why[h.name]=[];weak[h.name]=[]});
- enemies.forEach(e=>{const eh=H(e);eh.cby.forEach((c,i)=>{const n=full(c);if(n in sc){sc[n]+=4-i*.5;why[n].push(e)}});
- HEROES.forEach(h=>{if(h.name in sc&&h.ctr.includes(e))sc[h.name]+=1;if(h.name in sc&&eh.ctr.includes(h.name)){sc[h.name]-=2;weak[h.name].push(e)}})});
- return Object.entries(sc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n])=>({n,why:why[n],weak:weak[n]}))}
+const suggest=()=>rank([...enemies],myRole,HEROES).slice(0,5);
 const V={};
 V.counter=()=>{const s=suggest();const slots=[...enemies].map(av).join('')+'<span class="slot"></span>'.repeat(5-enemies.size);
  return `<h2>Counter-pick</h2><p class="sub">Tap up to 5 enemies, choose your role.</p>
  <div class="tray"><div class="slots">${slots}</div>${enemies.size?'<button class="btn" onclick="enemies.clear();render()">Clear</button>':''}</div>
  <div class="seg">${Object.entries(RC).map(([r,l])=>`<button class="${r==myRole?'on':''}" onclick="myRole='${r}';render()">I play ${l}</button>`).join('')}</div>
- ${enemies.size?`<h3>Best picks</h3>${s.length?s.map((x,i)=>`<button class="card res r${myRole}" style="width:100%;text-align:left" onclick="openHero('${x.n}')"><span class="rank">${i+1}</span>${av(x.n)}<span class="t"><b>${x.n}</b><div class="why">${WHY[x.n]||'Strong into this comp'} · vs ${x.why.slice(0,3).join(', ')}</div>${x.weak.length?`<div class="why warn">⚠ watch ${x.weak.join(', ')}</div>`:''}</span></button>`).join(''):'<div class="card empty">No clear counter here — play your comfort pick.</div>'}`:''}
+ ${enemies.size?`<h3>Best picks</h3>${s.length?s.map((x,i)=>`<button class="card res r${myRole}" style="width:100%;text-align:left" onclick="openHero('${x.n}')"><span class="rank">${i+1}</span>${av(x.n)}<span class="t"><b>${x.n}</b><div class="why">${x.why.slice(0,2).map(w=>`<b style="font-weight:600;color:#cfd5df">vs ${w.e}:</b> ${w.r}`).join('<br>')}</div>${x.weak.length?`<div class="why warn">⚠ watch ${x.weak.join(', ')}</div>`:''}</span></button>`).join(''):'<div class="card empty">No clear counter here — play your comfort pick.</div>'}`:''}
  <h3>Enemy team</h3>${roleGroups('tog',enemies)}${note}`};
 // MAPS
 let mode='All';const MODES=['All','Control','Escort','Hybrid','Push','Flashpoint'];
@@ -51,25 +49,24 @@ function openMap(n){const m=MAPS.find(x=>x[0]==n),picks=heroesIn(m[2]),tips=m[3]
 // HEROES
 let hrole='All';
 V.heroes=()=>`<h2>Heroes</h2><p class="sub">${HEROES.length} heroes · tap for tips, counters & settings</p><div class="seg">${['All','T','D','S'].map(r=>`<button class="${r==hrole?'on':''}" onclick="hrole='${r}';render()">${RC[r]||'All'}</button>`).join('')}</div>`+roleGroups('openHero',null,h=>hrole=='All'||h.role==hrole)+note;
+const erows=(l,i)=>l.length?`<div class="list">${l.map(e=>`<button class="row sc" onclick="openHero('${e[i]}')">${av(e[i])}<span class="grow"><b>${e[i]}</b><div class="hint">${e[2]}</div></span><span class="tag ${e[3]=='c'?'':'or'}">${e[3]=='c'?'consensus':'stats'}</span></button>`).join('')}</div>`:'<p class="hint">No verified matchups listed.</p>';
 function openHero(n){const h=H(n);sheet(`<div class="shead">${av(h.name)}<div><h2>${h.name}</h2><span class="tag r${h.role}">${RC[h.role]}</span>${h.sub!='—'?`<span class="tag">${h.sub}</span>`:''}${h.newish?'<span class="tag or">limited data</span>':''}</div></div>
  <h3>Key tips</h3><ul class="b">${h.tips.map(t=>`<li>${t[0].toUpperCase()+t.slice(1).replace(/\.$/,'')}</li>`).join('')}</ul>
- <h3>Countered by</h3><div class="chips">${h.cby.map(pchip).join('')}</div>
- <h3>Good into</h3><div class="chips">${h.ctr.map(pchip).join('')||'<span class="hint">Not enough data</span>'}</div>
+ <h3>Countered by</h3>${erows(h.cbyE,0)}<h3>Good into</h3>${erows(h.ctrE,1)}
  <h3>Settings</h3><ul class="b"><li>${h.set=='—'?'Defaults are fine':h.set}</li><li>Aim assist: n/a on PC mouse</li></ul>`)}
 // SENS
-const SCOPED=[['Widowmaker',30],['Ana',30],['Ashe',30],['Freja',null],['Emre',null]],rad=d=>d*Math.PI/180;
+const SCOPED=[['Widowmaker',30,'Zoom vFOV 30° · Blizzard forums & r/Overwatch (37.89)'],['Ana',30,'Zoom vFOV 30° · Blizzard forums & r/Overwatch (37.89)'],['Ashe',40,'Zoom vFOV 40° · Blizzard forums & r/Overwatch (51.47)'],['Cassidy',40,'Only with Silver Bullet perk · same zoom as Ashe · r/Overwatch (51.47)'],['Emre',42.5,'Zoom vFOV 42.5° workshop-measured · r/Competitiveoverwatch (54.99); community estimates 54.69–55.08'],['Freja',47.5,'Zoom vFOV 47.5° · r/Competitiveoverwatch (62.22); 62.50 also widely cited (Blizzard forums)']],rad=d=>d*Math.PI/180;
 let S={hs:5,dpi:800,fov:103,mdm:'0'};
 V.sens=()=>`<h2>Scoped sensitivity</h2><p class="sub">Match zoomed aim to your hipfire.</p><div class="card calc"><div class="fields">
  <div><label>Sens</label><input id="hs" type="number" inputmode="decimal" step="0.01" value="${S.hs}"></div><div><label>DPI</label><input id="dpi" type="number" inputmode="numeric" value="${S.dpi}"></div><div><label>FOV</label><input id="fov" type="number" inputmode="numeric" value="${S.fov}"></div></div>
  <div style="margin-top:10px"><label>Match method</label><select id="mdm">${[['0','0% monitor distance · recommended'],['0.5','50% monitor distance'],['0.75','75% monitor distance'],['1','100% monitor distance'],['360','360° distance (1:1)']].map(([v,l])=>`<option value="${v}"${v==S.mdm?' selected':''}>${l}</option>`).join('')}</select></div></div>
  <div id="sout"></div>
- <details><summary>How it works<span class="c">formula</span></summary><div style="padding:0 14px 14px" class="hint"><p>cm/360 = 360 ÷ (sens × 0.0066 × DPI) × 2.54</p><p>Set the % at Options → Controls → hero → “Relative aim sensitivity while zoomed”.</p><p>0% MDM = tan(zoom vFOV/2) ÷ tan(base vFOV/2) ≈ <b>37.89</b> at FOV 103. The game default <b>30</b> is slower than 0% MDM. 360° match = 100.</p></div></details>${note}`;
+ <details><summary>How it works<span class="c">formula</span></summary><div style="padding:0 14px 14px" class="hint"><p>cm/360 = 360 ÷ (sens × 0.0066 × DPI) × 2.54</p><p>Set the % at Options → Controls → hero → “Relative aim sensitivity while zoomed”.</p><p>0% MDM = tan(zoom vFOV/2) ÷ tan(base vFOV/2) ≈ <b>37.89</b> (Widow/Ana), 51.47 (Ashe/Cassidy perk), 54.99 (Emre), 62.22 (Freja) at FOV 103. Zoom FOVs are community-measured; Blizzard publishes none. The game default <b>30</b> is slower than 0% MDM. 360° match = 100.</p></div></details>${note}`;
 function sens(){['hs','dpi','fov','mdm'].forEach(k=>S[k]=$('#'+k).value);const s=+S.hs,d=+S.dpi,f=+S.fov||103,p=S.mdm,bv=2*Math.atan(Math.tan(rad(f)/2)*9/16);
  const cm=x=>s&&d?(360/(s*x*.0066*d)*2.54):0;
- $('#sout').innerHTML=`<div class="stats"><div class="stat"><div class="k">eDPI</div><div class="v">${Math.round(s*d)}</div></div><div class="stat"><div class="k">cm / 360°</div><div class="v">${cm(1)?cm(1).toFixed(1):'—'}</div></div></div><h3>Zoomed %</h3><div class="list">`+SCOPED.map(([n,zv])=>{
- if(!zv)return `<div class="row sc">${av(n)}<span class="grow"><b>${n}</b><div class="hint">Zoom FOV unverified · start at ${p=='360'?'100':'37.89'} & test</div></span></div>`;
+ $('#sout').innerHTML=`<div class="stats"><div class="stat"><div class="k">eDPI</div><div class="v">${Math.round(s*d)}</div></div><div class="stat"><div class="k">cm / 360°</div><div class="v">${cm(1)?cm(1).toFixed(1):'—'}</div></div></div><h3>Zoomed %</h3><p class="hint">Heroes with a per-hero zoom sensitivity setting. Cassidy has none by default — the option only applies with his Silver Bullet perk. Sojourn, Hanzo, Junkrat etc. have no zoom setting.</p><div class="list">`+SCOPED.map(([n,zv,src])=>{
  const z=rad(zv);let v=p=='360'?100:p=='0'?100*Math.tan(z/2)/Math.tan(bv/2):100*Math.atan(+p*Math.tan(2*Math.atan(Math.tan(z/2)*16/9)/2))/Math.atan(+p*Math.tan(rad(f)/2));
- return `<div class="row sc">${av(n)}<span class="grow"><b>${n}</b><div class="hint">${cm(v/100)?cm(v/100).toFixed(1)+' cm/360 scoped':''}</div></span><span class="v">${v.toFixed(2)}</span></div>`}).join('')+'</div>'}
+ return `<div class="row sc">${av(n)}<span class="grow"><b>${n}</b><div class="hint">${cm(v/100)?cm(v/100).toFixed(1)+' cm/360 scoped · ':''}<span style="font-size:11px">${src}</span></div></span><span class="v">${v.toFixed(2)}</span></div>`}).join('')+'</div>'}
 const after={sens:()=>{['hs','dpi','fov','mdm'].forEach(k=>$('#'+k).oninput=sens);sens()},xh:()=>document.querySelectorAll('.xc canvas').forEach((c,i)=>drawXH(c,XH[i][2],XH[i][1],1.6))};
 // CROSSHAIR
 function drawXH(cv,o,type,k){const dpr=2,W=cv.width=cv.clientWidth*dpr||320,H_=cv.height=W*.62,c=cv.getContext('2d'),cx=W/2,cy=H_/2,S_=k*dpr;c.globalAlpha=o.op/100;
